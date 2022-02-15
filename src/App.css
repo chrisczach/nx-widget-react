@@ -40,3 +40,14 @@
 button {
   font-size: calc(10px + 2vmin);
 }
+
+.systems {
+  padding: 32px;
+}
+
+.system {
+  padding: 8px 16px;
+  border: 1px solid white;
+  margin: 4px;
+  cursor: pointer;
+}

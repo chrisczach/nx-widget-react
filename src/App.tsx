@@ -1,48 +1,77 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import logo from "./logo.svg";
 import "./App.css";
+import { SharedWidgetState, System } from "dashboard-widget-state";
 
-const cloudInstance = "https://cloud-test.hdw.mx";
-const localHost = "http://localhost:3000";
-const dashboardPath = `${cloudInstance}/dashboard?devServer=http://localhost:3000/widget`;
-const authorizePath = `${cloudInstance}/authorize?redirectUrl=${dashboardPath}`;
+const dashboardPath = `${process.env.CLOUD_INSTANCE}/dashboard?devServer=http://127.0.0.1:3000}`;
 
 function App() {
   const [count, setCount] = useState(0);
+  const [message, setMessage] = useState("");
+  const [systems, setSystems] = useState<System[]>([]);
   const isIframe = window.location !== window.parent.location;
+  const stateObject = useRef<SharedWidgetState>();
 
-  const widget = (
+  useEffect(() => {
+    const subscriptions: any[] = [];
+    const stateChecker = setInterval(() => {
+      const _stateObject = (window as any).sharedState as SharedWidgetState;
+      if (_stateObject) {
+        stateObject.current = _stateObject;
+        clearInterval(stateChecker);
+        subscriptions.push(stateObject.current.state$.subscribe(setCount));
+        subscriptions.push(stateObject.current.systems$.subscribe(setSystems));
+      }
+    }, 10);
+    return () => {
+      clearInterval(stateChecker);
+      subscriptions.forEach((sub) => sub.unsubscribe());
+    };
+  }, [stateObject]);
+
+  const widget = stateObject ? (
     <header className="App-header">
       <img src={logo} className="App-logo" alt="logo" />
       <p>Hello Vite + React!</p>
       <p>
-        <button type="button" onClick={() => setCount((count) => count + 1)}>
-          count is: {count}
+        <h2>count is: {count}</h2>
+        <button type="button" onClick={() => stateObject?.current?.increment()}>
+          Increment
+        </button>
+        <button type="button" onClick={() => stateObject?.current?.decrement()}>
+          Decrement
         </button>
       </p>
       <p>
         Edit <code>App.tsx</code> and save to test HMR updates.
       </p>
-      <p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-        {" | "}
-        <a
-          className="App-link"
-          href="https://vitejs.dev/guide/features.html"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Vite Docs
-        </a>
-      </p>
+      <div>
+        <h3>Systems</h3>
+        {message ? (
+          <h3>{message}</h3>
+        ) : (
+          <div className="systems">
+            {systems.map(({ name, id }) => (
+              <a
+                className="system"
+                onClick={() => {
+                  stateObject?.current
+                    ?.navigateByUrl(`/systems/${id}`)
+                    .then(() => {
+                      setMessage(`Navigating to ${name} system`);
+                    });
+                }}
+                key={id}
+              >
+                {name}
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
     </header>
+  ) : (
+    <h2>Loading...</h2>
   );
 
   const previewLink = (
